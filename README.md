@@ -15,7 +15,7 @@ class NotAnArchiveError(Exception):
 class CTOReader(object):
   """
   """
-  ENTRYSTRUCT = ''
+  ENTRYSTRUCT = '!iiiiBB'
   ENTRYLEN = struct.calcsize(ENTRYSTRUCT)
   
   def __init__(self):
@@ -27,29 +27,30 @@ class CTOReader(object):
     p = 0
     
     while p < len(s):
-      ()
+      (slen, dpos, dlen, ulen, flag, typcd) = struct.unpack(self.ENTRYSTRUCT,
+        s[p:p + self.ENTRYLEN])
       nmlen = slen - self.ENTRYLEN
       p = p + self.ENTRYLEN
-      () = struct.unpack()
+      (nm,) = struct.unpack('%is ' % nmlen, s[p:p + nmlen])
       p = p + nmlen
-      nm = nm.rstrip()
-      nm = nm.decode()
-      typcd = chr()
-      self.data.append()
+      nm = nm.rstrip(b'\0')
+      nm = nm.decode('utf-8')
+      typcd = chr(typcd)
+      self.data.append((dops, dlen, ulen, flag, typcd, nm))
       
-  def get():
+  def get(self, ndx):
     """
     """
-    return self.data[]
+    return self.data[ndx]
     
-  def __getitem__():
-    return self.data[]
+  def __getitem__(self, ndx):
+    return self.data[ndx]
     
-  def find():
+  def find(self, name):
     """
     """
-    for i, nm in enumerate():
-      if nm[] == name:
+    for i, nm in enumerate(self.data):
+      if nm[-1] == name:
         return i
     return -1
     
@@ -60,10 +61,10 @@ class CArchiveReader(ArchiveReader):
   HORLEN = 0
   LEVEL = 9
   
-  _cookie_format = ''
+  _cookie_format = '!8siiii64s'
   _cookie_size = struct.calcsize(_cookie_format)
   
-  def __init__():
+  def __init__(self, archive_path=None, start=0, length=0, pylib_name=''):
     """
     """
     self.length = length
@@ -76,21 +77,24 @@ class CArchiveReader(ArchiveReader):
     """
     """
     if self.length:
-      self.lib.seek()
+      self.lib.seek(self.start + self.length, 0)
     else:
       self.lib.seek(0, 2)
     filelen = self.lib.tell()
     
-    self.lib.seek()
+    self.lib.seek(max(0, filelen-4096))
     searchpos = self.lib.tell()
     buf = self.lib.read(min(filelen, 4096))
-    pos = buf.rfind()
+    pos = buf.rfind(self.MAGIC)
     if pos == -1:
       raise RuntimeError("%s is not a valid %s archive file" %
         (self.path, self.__class__.__name__))
     filelen = searchpos + pos + self._cookie_size
     (magic, totallen, tocpos, toclen, pyvers, pylib_name) = struct.unpack(
       self._cookie_format, buf[pos:pos+self._cookie_size])
+    if magic != self.MAGIC:
+      raise RuntimeError("%s is not a valid %s archive file" %
+        (self.path, self.__class__.__name__))
     
     self.pkg_start = filelen - totallen
     if self.length:
@@ -121,23 +125,23 @@ class CArchiveReader(ArchiveReader):
     (dops, dlen, ulen, flag, typcd, nm) = self.toc.get(ndx)
     
     with self.lib:
-      self.lib.seek()
+      self.lib.seek(self.pkg_start + deops)
       rslt = self.lib.read(dlen)
       
     if flag == 1:
       import zlib
-      rslt = zlib.decompress()
-    if typcd == '':
-      return ()
+      rslt = zlib.decompress(rslt)
+    if typcd == 'M':
+      return (1, rslt)
       
-    return ()
+    return (typcd == 'M', rslt)
     
-  def contents():
+  def contents(self):
     """
     """
     rslt = []
-    for () in self.toc:
-      rslt.append()
+    for (dops, dlen, ulen, flag, typcd, nm) in self.toc:
+      rslt.append(nm)
     return rslt
   
   def openEmbedded(self, name):
